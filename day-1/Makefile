@@ -14,7 +14,7 @@ INC_DIRS := $(shell find $(SRC_DIRS) -type d)
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
 CC = clang
-CFLAGS += -Wall -Wextra
+CFLAGS += -Wall -Wextra -std=c99
 
 # flags to generate .d files next to .o files
 CINCLUDEFLAGS ?= $(INC_FLAGS) -MMD -MP
