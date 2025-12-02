@@ -14,8 +14,8 @@ typedef struct Range {
 unsigned long max(unsigned long a, unsigned long b) { return a * (a >= b) + b * (a < b); };
 unsigned long min(unsigned long a, unsigned long b) { return a * (a <= b) + b * (a > b); };
 
-unsigned int find_num_inval_ids_for_one_range(int start_low, int end_low, int start_high,
-                                              int end_high, char *line) {
+unsigned long find_num_inval_ids_for_one_range(int start_low, int end_low, int start_high,
+                                               int end_high, char *line) {
 
     int num_digits_low = end_low - start_low;
     int num_digits_high = end_high - start_high;
