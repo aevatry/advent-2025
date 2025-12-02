@@ -1,3 +1,7 @@
+#local formatting and debugging
+*.clang-format
+*/.zed/
+
 # Prerequisites
 *.d
 
