@@ -14,49 +14,12 @@ typedef struct Range {
 unsigned long max(unsigned long a, unsigned long b) { return a * (a >= b) + b * (a < b); };
 unsigned long min(unsigned long a, unsigned long b) { return a * (a <= b) + b * (a > b); };
 
-int get_next_patern(int num_digits, unsigned long number, int start_patern, int end_patern) {
-
-    double trunc_high_factor = pow(10, num_digits - (start_patern));
-    double trunc_low_factor = pow(10, num_digits - (end_patern));
-
-    unsigned long a = number / trunc_high_factor;
-    unsigned long b = number / trunc_low_factor;
-    unsigned long c = number - b * trunc_low_factor;
-    return (int)(number - a * trunc_high_factor - c) / trunc_low_factor;
-};
-
-bool is_number_invalid(int num_digits, unsigned long number) {
-
-    for (int i = 1; i <= num_digits / 2; i++) {
-        bool patern_found = false;
-
-        if (num_digits % i == 0) {
-            // watch out where the casting is as we do not want overflow
-            int pattern = (int)(number / pow(10, num_digits - i));
-
-            for (int j = 1; j <= num_digits / i - 1; j++) {
-                int next_pattern = get_next_patern(num_digits, number, j * i, (j + 1) * i);
-
-                if (next_pattern == pattern) {
-                    patern_found = true;
-                } else {
-                    patern_found = false;
-                    break;
-                }
-            }
-            if (patern_found == true) {
-                return true;
-            }
-        }
-    }
-    return false;
-};
-
 unsigned long find_num_inval_ids_for_one_range(int start_low, int end_low, int start_high,
                                                int end_high, char *line) {
 
     int num_digits_low = end_low - start_low;
     int num_digits_high = end_high - start_high;
+    printf("Num digits low: %i | Num digits high: %i\n", num_digits_low, num_digits_high);
 
     unsigned long sum_invalid_ids = 0;
 
@@ -74,23 +37,35 @@ unsigned long find_num_inval_ids_for_one_range(int start_low, int end_low, int s
         counter++;
     }
 
-    printf("current range %lu -> %lu\n", l_low, l_high);
+    printf("low: %lu | high: %lu\n", l_low, l_high);
+
+    if (num_digits_high == num_digits_low && num_digits_high % 2 != 0) {
+        printf("\n");
+        return 0;
+    }
 
     /*Iterate and construct over possible ranges and find invalid ids for each range*/
     for (int i = num_digits_low; i <= num_digits_high; i++) {
+        // check for even number of digits
+        if (i % 2 == 0) {
 
-        // complete ranges of the current number of digits
-        unsigned long min_curr_range = pow(10, i - 1);
-        unsigned long max_curr_range = pow(10, i) - 1;
+            int power_for_half_digits = i >> 1;
 
-        // adjusted range to take into account our given numbers
-        unsigned long start_curr_range = max(min_curr_range, l_low);
-        unsigned long end_curr_range = min(max_curr_range, l_high);
+            // complete ranges of the current number of digits
+            unsigned long min_curr_range = pow(10, i - 1);
+            unsigned long max_curr_range = pow(10, i) - 1;
 
-        for (unsigned long j = start_curr_range; j <= end_curr_range; j++) {
-            if (is_number_invalid(i, j) == true) {
-                sum_invalid_ids += j;
-                // printf("invalid found: %lu \n", j);
+            // adjusted range to take into account our given numbers
+            unsigned long start_curr_range = max(min_curr_range, l_low);
+            unsigned long end_curr_range = min(max_curr_range, l_high);
+
+            for (unsigned long j = start_curr_range; j <= end_curr_range; j++) {
+                unsigned long bigger_half = j / (unsigned long)pow(10, power_for_half_digits);
+                unsigned long lower_half = j - bigger_half * pow(10, power_for_half_digits);
+                if (bigger_half == lower_half) {
+                    sum_invalid_ids += j;
+                    printf("For current range, invalid found: %lu \n", j);
+                }
             }
         }
     }
@@ -166,9 +141,8 @@ int main() {
         char_counter++;
     }
 
-    unsigned long input = 6868686868;
-    bool is_invalid = is_number_invalid(10, input);
-    printf("%lu is_invalid:%i (1 is invalid, 0 is valid)\n", input, (int)is_invalid);
+    // sum_inval_ids = find_num_inval_ids_for_one_range(22, 32, 33, 43, line);
+
     printf("Sum of invalid ids: %lu \n", sum_inval_ids);
 
     fclose(input_file);
