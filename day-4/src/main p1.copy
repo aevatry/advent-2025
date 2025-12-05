@@ -56,8 +56,8 @@ void put_val_in_array(int val, int n_idx, int m_idx, IntArray *array) {
 
 void print_2d_array(IntArray *array) {
     // Printing the 2D array
-    for (int i = 0; i < array->n; i++) {
-        for (int j = 0; j < array->m; j++) {
+    for (int i = 0; i < array->max_n; i++) {
+        for (int j = 0; j < array->max_m; j++) {
             printf("%i ", array->data[i][j]);
         }
         printf("\n"); // Move to the next row
@@ -80,12 +80,6 @@ int sum_neighborhood(IntArray *array, int base_n, int base_m) {
     }
 
     return res - 1;
-};
-
-void clean_array_for_indices(IntArray *array, int *indices_n, int *indices_m, int limit_indices) {
-    for (int i = 0; i < limit_indices; i++) {
-        array->data[indices_n[i]][indices_m[i]] = 0;
-    }
 };
 
 int main() {
@@ -118,6 +112,8 @@ int main() {
         in_line_idx = 0;
         has_reached_eol = false;
 
+        printf("%s", line);
+
         // !! assumption -> input is well formatted and has equal line length
         while (has_reached_eol == false) {
 
@@ -134,27 +130,17 @@ int main() {
         line_counter++;
     }
 
-    int removed_rolls = 1;
+    printf("\n n reached: %i | m reached: %i \n\n", rolls_num->n, rolls_num->m);
 
-    while (removed_rolls != 0) {
-        removed_rolls = 0;
-        int idx_counter = 0;
-        int n_indices[ARRAY_SIZE * ARRAY_SIZE] = {0};
-        int m_indices[ARRAY_SIZE * ARRAY_SIZE] = {0};
-
-        for (int i = 0; i <= rolls_num->n; i++) {
-            for (int j = 0; j <= rolls_num->m; j++) {
-                int loc_sum = sum_neighborhood(rolls_num, i, j);
-                if (loc_sum < 4 && rolls_num->data[i][j] == 1) {
-                    accessible_rolls += 1;
-                    removed_rolls += 1;
-                    n_indices[idx_counter] = i;
-                    m_indices[idx_counter] = j;
-                    idx_counter += 1;
-                }
+    for (int i = 0; i <= rolls_num->n; i++) {
+        for (int j = 0; j <= rolls_num->m; j++) {
+            int loc_sum = sum_neighborhood(rolls_num, i, j);
+            if (loc_sum < 4 && rolls_num->data[i][j] == 1) {
+                printf("At position [%i, %i] roll is accessible with %i neighbours\n", i, j,
+                       loc_sum);
+                accessible_rolls += 1;
             }
         }
-        clean_array_for_indices(rolls_num, n_indices, m_indices, removed_rolls);
     }
 
     printf("\nThere are %i accessible rolls\n", accessible_rolls);
