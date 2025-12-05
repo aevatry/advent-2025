@@ -1,41 +1,92 @@
+#include <assert.h>
+#include <limits.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #define LINE_LENGTH 256
+#define ARRAY_SIZE 256
 
 typedef enum { false, true } bool;
 
+int max(int a, int b) { return a * (a >= b) + b * (a < b); };
+int min(int a, int b) { return a * (a <= b) + b * (a > b); };
+
+int absolute(int a) { return (a > 0) * a - (a < 0) * a; };
+
 typedef struct IntArray {
-    int n;
     int max_n;
-    int m;
+    int n;
     int max_m;
+    int m;
     int **data;
 } IntArray;
 
 IntArray *create_array(int max_n, int max_m) {
-    IntArray *array = (IntArray *)malloc(sizeof(*array) + max_n * max_m * (sizeof(int)));
+    IntArray *array = (IntArray *)malloc(sizeof(*array));
     array->max_n = max_n;
     array->max_m = max_m;
+
+    array->data = (int **)malloc(max_n * sizeof(int *));
+    for (int i = 0; i < max_n; i++) {
+        array->data[i] = malloc(max_m * sizeof(int));
+    }
     return array;
 };
 
+void free_array(IntArray *array) {
+    for (int i = 0; i < array->max_n; i++) {
+        free(array->data[i]);
+    }
+    free(array);
+};
+
 void put_val_in_array(int val, int n_idx, int m_idx, IntArray *array) {
+    assert(n_idx < array->max_n);
+    assert(m_idx < array->max_m);
+
+    if (array->n < n_idx) {
+        array->n = n_idx;
+    }
+    if (array->m < m_idx) {
+        array->m = m_idx;
+    }
+
     array->data[n_idx][m_idx] = val;
 };
 
-void print_range_string(int start_range, int stop_range, char *array) {
-    printf("For range %i-%i in the string: ", start_range, stop_range);
-    for (int i = start_range; i <= stop_range; i++) {
-        printf("%c", array[i]);
+void print_2d_array(IntArray *array) {
+    // Printing the 2D array
+    for (int i = 0; i < array->max_n; i++) {
+        for (int j = 0; j < array->max_m; j++) {
+            printf("%i ", array->data[i][j]);
+        }
+        printf("\n"); // Move to the next row
     }
+};
+
+int sum_neighborhood(IntArray *array, int base_n, int base_m) {
+    int res = 0;
+
+    // bounds checking
+    int start_idx_n = max(0, base_n - 1);
+    int stop_idx_n = min(array->n, base_n + 1);
+    int start_idx_m = max(0, base_m - 1);
+    int stop_idx_m = min(array->m, base_m + 1);
+
+    for (int i = start_idx_n; i <= stop_idx_n; i++) {
+        for (int j = start_idx_m; j <= stop_idx_m; j++) {
+            res += array->data[i][j];
+        }
+    }
+
+    return res - 1;
 };
 
 int main() {
 
     FILE *input_file;
-    input_file = fopen("dummy.txt", "r");
+    input_file = fopen("input.txt", "r");
     if (input_file == NULL) {
         printf("The file is not opened.");
         fclose(input_file);
@@ -48,31 +99,54 @@ int main() {
 
     // start state of the problem
     int accessible_rolls = 0;
-    IntArray *rolls_num = create_array(LINE_LENGTH, LINE_LENGTH);
-    IntArray *rolls_char = create_array(LINE_LENGTH, LINE_LENGTH);
+    IntArray *rolls_num = create_array(ARRAY_SIZE, ARRAY_SIZE);
 
     // setup of problem variables
-    int line_length;
+    int in_line_idx;
     bool has_reached_eol;
+
+    int line_counter = 0;
 
     while (fgets(line, LINE_LENGTH, input_file) != NULL) {
 
         // reset line interpretation
-        line_length = 0;
+        in_line_idx = 0;
         has_reached_eol = false;
+
+        printf("%s", line);
 
         // !! assumption -> input is well formatted and has equal line length
         while (has_reached_eol == false) {
 
-            line_length += 1;
+            if (line[in_line_idx] == '@') {
+                put_val_in_array(1, line_counter, in_line_idx, rolls_num);
+            }
+
+            in_line_idx++;
             // line end condition
-            if ((int)line[line_length] == 10) {
+            if ((int)line[in_line_idx] == 10) {
                 has_reached_eol = true;
+            }
+        }
+        line_counter++;
+    }
+
+    printf("\n n reached: %i | m reached: %i \n\n", rolls_num->n, rolls_num->m);
+
+    for (int i = 0; i <= rolls_num->n; i++) {
+        for (int j = 0; j <= rolls_num->m; j++) {
+            int loc_sum = sum_neighborhood(rolls_num, i, j);
+            if (loc_sum < 4 && rolls_num->data[i][j] == 1) {
+                printf("At position [%i, %i] roll is accessible with %i neighbours\n", i, j,
+                       loc_sum);
+                accessible_rolls += 1;
             }
         }
     }
 
-    printf("Total joltage: %lu\n", sum_joltage);
+    printf("\nThere are %i accessible rolls\n", accessible_rolls);
+
+    free_array(rolls_num);
 
     fclose(input_file);
     return EXIT_SUCCESS;
