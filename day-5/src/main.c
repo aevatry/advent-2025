@@ -1,10 +1,61 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define LINE_LENGTH 128
 
 typedef enum { false, true } bool;
+
+void swap_long(unsigned long *a, unsigned long *b) {
+    unsigned long temp = *a;
+    *a = *b;
+    *b = temp;
+}
+void swap_int(int *a, int *b) {
+    int temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+// Partition function (as defined above)
+int partition(unsigned long *arr, int *indices, int low, int high) {
+    unsigned long pivot = arr[high];
+    int i = low;
+    for (int j = low; j < high; j++) {
+        if (arr[j] <= pivot) {
+            swap_long(&arr[i], &arr[j]);
+            swap_int(&indices[i], &indices[j]);
+            i++;
+        }
+    }
+    swap_long(&arr[i], &arr[high]);
+    swap_int(&indices[i], &indices[high]);
+    return i;
+}
+
+// Quick Sort function (as defined above)
+void quickSort(unsigned long *arr, int *indices, int low, int high) {
+    if (low < high) {
+        int pi = partition(arr, indices, low, high);
+        quickSort(arr, indices, low, pi - 1);
+        quickSort(arr, indices, pi + 1, high);
+    }
+}
+
+// Utility function to print the array
+void printIntArray(int *arr, int size) {
+    for (int i = 0; i < size; i++) {
+        printf("%d ", arr[i]);
+    }
+    printf("\n");
+}
+void printULongArray(unsigned long *arr, int size) {
+    for (int i = 0; i < size; i++) {
+        printf("%lu ", arr[i]);
+    }
+    printf("\n");
+}
 
 unsigned long construct_long_from_chars(int length_num, char *chars) {
     unsigned long result = 0;
@@ -69,6 +120,45 @@ int is_id_fresh(unsigned long *low_bound, unsigned long *high_bound, int last_wr
     return num_ranges_fall > 0;
 };
 
+unsigned long tot_range_count(unsigned long *low_bounds, unsigned long *high_bounds,
+                              int last_writable_idx) {
+    unsigned long res = 0;
+
+    int index_used[last_writable_idx];
+    int indices[last_writable_idx];
+    for (int i = 0; i < last_writable_idx; i++) {
+        indices[i] = i;
+        index_used[i] = 0;
+    }
+
+    quickSort(low_bounds, indices, 0, last_writable_idx - 1);
+
+    for (int i = 0; i < last_writable_idx; i++) {
+
+        if (index_used[i] == 0) {
+            int curr_max_idx = indices[i];
+            unsigned long curr_min = low_bounds[i];
+            unsigned long curr_max = high_bounds[curr_max_idx];
+
+            for (int j = i + 1; j < last_writable_idx; j++) {
+                int temp_max_idx = indices[j];
+                if (low_bounds[j] <= curr_max && curr_max <= high_bounds[temp_max_idx]) {
+                    curr_max = high_bounds[temp_max_idx];
+                    index_used[j] = 1;
+                }
+                if (low_bounds[j] <= curr_max && high_bounds[temp_max_idx] <= curr_max) {
+                    index_used[j] = 1;
+                }
+            }
+            res += curr_max - curr_min + 1;
+            printf("Found continuous range: %lu - %lu with range: %lu\n", curr_min, curr_max,
+                   curr_max - curr_min + 1);
+        }
+    }
+
+    return res;
+}
+
 int main() {
 
     FILE *input_file;
@@ -83,13 +173,11 @@ int main() {
     char line[LINE_LENGTH];
 
     // start state of the problem
-    int fresh_total = 0;
     int current_write_bound_idx = 0;
-    unsigned long low_bound[256];
-    unsigned long high_bound[256];
+    unsigned long low_bounds[256] = {0};
+    unsigned long high_bounds[256] = {0};
 
     // setup of problem variables
-    bool has_reached_eol;
     bool has_reached_separation = false;
 
     while (fgets(line, LINE_LENGTH, input_file) != NULL) {
@@ -101,28 +189,14 @@ int main() {
             continue;
         };
 
-        // reset line interpretation
-        int line_idx = 0;
-        has_reached_eol = false;
-
-        while (has_reached_eol == false) {
-
-            line_idx += 1;
-            // line end condition
-            if ((int)line[line_idx] == 10) {
-                has_reached_eol = true;
-            }
-        }
-
         if (has_reached_separation == false) {
-            process_range_line(low_bound, high_bound, &current_write_bound_idx, line);
-        } else {
-            unsigned long id = process_id_line(line);
-            fresh_total += is_id_fresh(low_bound, high_bound, current_write_bound_idx, id);
+            process_range_line(low_bounds, high_bounds, &current_write_bound_idx, line);
         }
     }
 
-    printf("Number of fresh items: %i\n", fresh_total);
+    unsigned long fresh_tot = tot_range_count(low_bounds, high_bounds, current_write_bound_idx);
+
+    printf("Number of fresh items: %lu\n", fresh_tot);
 
     fclose(input_file);
     return EXIT_SUCCESS;
