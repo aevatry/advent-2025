@@ -88,7 +88,8 @@ int main() {
     char line[LINE_LENGTH];
 
     // start state of the problem
-    IntArray *file_copy_array = create_array(LINE_LENGTH, ARRAY_SIZE_M);
+    unsigned long tot_sum = 0;
+    IntArray *digits_array = create_array(ARRAY_SIZE_N, ARRAY_SIZE_M);
     char operands[ARRAY_SIZE_N];
 
     // setup of problem variables
@@ -97,6 +98,11 @@ int main() {
     int num_counter;
     int line_idx;
 
+    // number reading within line
+    bool is_within_number;
+    int number_length;
+    char char_buffer[MAX_NUM_LENGTH];
+
     while (fgets(line, LINE_LENGTH, input_file) != NULL) {
 
         // reset line interpretation
@@ -104,15 +110,44 @@ int main() {
         num_counter = 0;
         line_idx = 0;
 
+        // line starts with a number or an operand
+        if ('0' <= line[line_idx] && line[line_idx] <= '9') {
+            is_within_number = true;
+        } else {
+            is_within_number = false;
+        }
+
+        number_length = 0;
+
         // !! assumption -> input is well formatted
         while (has_reached_eol == false) {
 
-            // Operands or main bulk of file
+            // read number
+            if ('0' <= line[line_idx] && line[line_idx] <= '9') {
+                assert(number_length < MAX_NUM_LENGTH);
+                char_buffer[number_length] = line[line_idx];
+                number_length += 1;
+            }
+
+            // process number when at end of it
+            if (is_within_number == true &&
+                (line[line_idx + 1] == ' ' || line[line_idx + 1] == 10)) {
+                int num = construct_int_from_chars(number_length, char_buffer);
+                put_val_in_array(num, num_counter, line_counter, digits_array);
+                is_within_number = false;
+                number_length = 0;
+                num_counter++;
+            }
+
+            // detect start of a new number
+            if (line[line_idx] == ' ' && '0' <= line[line_idx + 1] && line[line_idx + 1] <= '9') {
+                is_within_number = true;
+            }
+
+            // Detect operands
             if (line[line_idx] == '*' || line[line_idx] == '+') {
                 operands[num_counter] = line[line_idx];
                 num_counter++;
-            } else {
-                put_val_in_array((int)line[line_idx], line_idx, line_counter, file_copy_array);
             }
 
             line_idx++;
@@ -124,66 +159,27 @@ int main() {
         line_counter++;
     }
 
-    // Handling of the well formatted input
-    unsigned long tot_sum = 0;
+    // print_2d_array(digits_array);
+    // printf("%s \n", operands);
 
-    unsigned long running_sum = 0;
-    unsigned long running_product = 1;
-    int operands_idx = 0;
+    for (int i = 0; i <= digits_array->n; i++) {
 
-    for (int i = 0; i <= file_copy_array->n; i++) {
-
-        int number_length = 0;
-        char char_buffer[MAX_NUM_LENGTH];
-        bool line_empty = true;
-
-        for (int j = 0; j <= file_copy_array->m; j++) {
-            char curr_char = (char)file_copy_array->data[i][j];
-            printf("%c", curr_char);
-            if ('0' <= curr_char && curr_char <= '9') {
-                char_buffer[number_length] = curr_char;
-                number_length++;
-                line_empty = false;
-            }
+        unsigned long local_op_res = 0;
+        if (operands[i] == '*') {
+            local_op_res = 1;
         }
-
-        if (line_empty == true) {
-            char operand = operands[operands_idx];
-
-            if (operand == '+') {
-                tot_sum += running_sum;
-                printf("Chose : %lu", running_sum);
+        for (int j = 0; j <= digits_array->m; j++) {
+            if (operands[i] == '+') {
+                local_op_res += (unsigned long)digits_array->data[i][j];
             } else {
-                tot_sum += running_product;
-                printf(" Chose : %lu", running_product);
+                local_op_res *= (unsigned long)digits_array->data[i][j];
             }
-
-            running_product = 1;
-            running_sum = 0;
-            operands_idx += 1;
-
-        } else {
-            int num = construct_int_from_chars(number_length, char_buffer);
-            running_sum += (unsigned long)num;
-            running_product *= (unsigned long)num;
         }
-
-        printf("\n");
+        // printf("For line %i, got operand %c and res: %lu\n", i, operands[i], local_op_res);
+        tot_sum += local_op_res;
     }
 
-    // need to add the last operand as it is not an empty line after
-    char operand = operands[operands_idx];
-    printf("At end of text, operand %c and totals are +: %lu and *: %lu", operands[operands_idx],
-           running_sum, running_product);
-    if (operand == '+') {
-        tot_sum += running_sum;
-        printf(" Chose : %lu \n", running_sum);
-    } else {
-        tot_sum += running_product;
-        printf(" Chose : %lu \n", running_product);
-    }
-
-    free_array(file_copy_array);
+    free_array(digits_array);
 
     printf("Total sum: %lu\n", tot_sum);
 
