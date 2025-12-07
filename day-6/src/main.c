@@ -11,8 +11,8 @@
 
 typedef enum { false, true } bool;
 
-int max(int a, int b) { return a * (a >= b) + b * (a < b); };
-int min(int a, int b) { return a * (a <= b) + b * (a > b); };
+int max_i(int a, int b) { return a * (a >= b) + b * (a < b); };
+int min_i(int a, int b) { return a * (a <= b) + b * (a > b); };
 
 typedef struct IntArray {
     int max_n;
@@ -55,7 +55,7 @@ void put_val_in_array(int val, int n_idx, int m_idx, IntArray *array) {
     array->data[n_idx][m_idx] = val;
 };
 
-void print_2d_array(IntArray *array) {
+void print_2d_int_array(IntArray *array) {
     // Printing the 2D array
     for (int i = 0; i <= array->n; i++) {
         for (int j = 0; j <= array->m; j++) {

@@ -1,3 +1,4 @@
+#include "array.h"
 #include <assert.h>
 #include <limits.h>
 #include <stdio.h>
@@ -9,67 +10,7 @@
 
 typedef enum { false, true } bool;
 
-int max(int a, int b) { return a * (a >= b) + b * (a < b); };
-int min(int a, int b) { return a * (a <= b) + b * (a > b); };
-
-typedef struct IntArray {
-    int max_n;
-    int n;
-    int max_m;
-    int m;
-    int **data;
-} IntArray;
-
-IntArray *create_array(int max_n, int max_m) {
-    IntArray *array = (IntArray *)malloc(sizeof(*array));
-    array->max_n = max_n;
-    array->max_m = max_m;
-
-    array->data = (int **)malloc(max_n * sizeof(int *));
-    for (int i = 0; i < max_n; i++) {
-        array->data[i] = malloc(max_m * sizeof(int));
-    }
-    return array;
-};
-
-void free_array(IntArray *array) {
-    for (int i = 0; i < array->max_n; i++) {
-        free(array->data[i]);
-    }
-    free(array);
-};
-
-void fill_array(int val, IntArray *array) {
-    for (int i = 0; i < array->max_n; i++) {
-        for (int j = 0; j < array->max_m; j++) {
-            array->data[i][j] = val;
-        }
-    }
-};
-
-void push_bounds(int n_inc, int m_inc, IntArray *array) {
-    int n_end = min(n_inc, array->max_n);
-    int m_end = min(m_inc, array->max_m);
-
-    array->n = n_end;
-    array->m = m_end;
-};
-
-void put_val_in_array(int val, int n_idx, int m_idx, IntArray *array) {
-    assert(n_idx < array->max_n);
-    assert(m_idx < array->max_m);
-
-    if (array->n < n_idx) {
-        array->n = n_idx;
-    }
-    if (array->m < m_idx) {
-        array->m = m_idx;
-    }
-
-    array->data[n_idx][m_idx] = val;
-};
-
-char get_from_array_as_char(int n_idx, int m_idx, IntArray *array) {
+char get_from_int_array_as_char(int n_idx, int m_idx, IntArray *array) {
     char res;
 
     // bounds checking
@@ -83,7 +24,7 @@ char get_from_array_as_char(int n_idx, int m_idx, IntArray *array) {
     return res;
 };
 
-void print_2d_array(IntArray *array) {
+void print_2d_int_array(IntArray *array) {
     // Printing the 2D array
     for (int i = 0; i <= array->n; i++) {
         for (int j = 0; j <= array->m; j++) {
@@ -91,6 +32,35 @@ void print_2d_array(IntArray *array) {
         }
         printf("\n"); // Move to the next row
     }
+};
+
+// could add caching but a bit more complicated
+unsigned long number_of_paths(IntArray *array, int idx, int depth, ULongArray *cache) {
+
+    unsigned long res = 0;
+
+    // base case
+    if (depth == 0) {
+        return 1;
+    }
+
+    int n = array->n - depth;
+
+    if (cache->data[n][idx] > 0) {
+        return cache->data[n][idx];
+    }
+
+    if (get_from_int_array_as_char(n, idx, array) == '|') {
+        res = number_of_paths(array, idx, depth - 1, cache);
+    }
+    if (get_from_int_array_as_char(n, idx, array) == '^') {
+        res = number_of_paths(array, idx - 1, depth - 1, cache) +
+              number_of_paths(array, idx + 1, depth - 1, cache);
+    }
+
+    cache->data[n][idx] = res;
+
+    return res;
 };
 
 int main() {
@@ -107,11 +77,11 @@ int main() {
     char line[LINE_LENGTH];
 
     // start state of the problem
-    IntArray *diagram = create_array(ARRAY_SIZE_N, ARRAY_SIZE_M);
-    fill_array((int)'.', diagram);
+    IntArray *diagram = create_array_i(ARRAY_SIZE_N, ARRAY_SIZE_M);
+    fill_array_i((int)'.', diagram);
 
     // setup of problem variables
-    int splitter_counter = 0;
+    int idx_first = 0;
     bool has_reached_eol;
     int line_counter = 0;
     int in_line_idx;
@@ -125,28 +95,28 @@ int main() {
         // !! assumption -> input is well formatted
         while (has_reached_eol == false) {
 
-            push_bounds(line_counter + 1, in_line_idx + 1, diagram);
+            push_bounds_i(line_counter + 1, in_line_idx + 1, diagram);
 
             // base case of first line
             if (line[in_line_idx] == 'S') {
-                put_val_in_array((int)'S', line_counter, in_line_idx, diagram);
-                put_val_in_array((int)'|', line_counter + 1, in_line_idx, diagram);
+                idx_first = in_line_idx;
+                put_val_in_array_i((int)'|', line_counter, in_line_idx, diagram);
             }
 
             // case of |
-            if (get_from_array_as_char(line_counter - 1, in_line_idx, diagram) == '|') {
-                put_val_in_array((int)'|', line_counter, in_line_idx, diagram);
+            if (line_counter > 0 &&
+                get_from_int_array_as_char(line_counter - 1, in_line_idx, diagram) == '|') {
+                put_val_in_array_i((int)'|', line_counter, in_line_idx, diagram);
             }
 
             // case of ^
             if (line[in_line_idx] == '^') {
-                put_val_in_array((int)'^', line_counter, in_line_idx, diagram);
+                put_val_in_array_i((int)'^', line_counter, in_line_idx, diagram);
 
                 // if there is a beam above
-                if (get_from_array_as_char(line_counter - 1, in_line_idx, diagram) == '|') {
-                    splitter_counter += 1;
-                    put_val_in_array((int)'|', line_counter, in_line_idx - 1, diagram);
-                    put_val_in_array((int)'|', line_counter, in_line_idx + 1, diagram);
+                if (get_from_int_array_as_char(line_counter - 1, in_line_idx, diagram) == '|') {
+                    put_val_in_array_i((int)'|', line_counter, in_line_idx - 1, diagram);
+                    put_val_in_array_i((int)'|', line_counter, in_line_idx + 1, diagram);
                 }
             }
 
@@ -159,6 +129,8 @@ int main() {
         line_counter++;
     }
 
+    push_bounds_i(line_counter - 1, in_line_idx - 1, diagram);
+
     for (int i = 0; i <= diagram->n; i++) {
 
         for (int j = 0; j <= diagram->m; j++) {
@@ -168,9 +140,15 @@ int main() {
         printf("\n");
     }
 
-    free_array(diagram);
+    ULongArray *cache = create_array_ulong(diagram->n, diagram->m);
+    fill_array_ulong(0, cache);
 
-    printf("Total number of splits: %i\n", splitter_counter);
+    unsigned long num_paths = number_of_paths(diagram, idx_first, diagram->n, cache);
+
+    free_array_i(diagram);
+    free_array_ulong(cache);
+
+    printf("Num paths: %lu\n", num_paths);
 
     fclose(input_file);
     return EXIT_SUCCESS;
