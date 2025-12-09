@@ -144,6 +144,15 @@ void find_subgraphs(IntArray *adj, int *subgraphs_size, int *num_subgraphs, int 
     }
 };
 
+int sum_diag(IntArray *adj_matrix) {
+    int res = 0;
+    for (int i = 0; i <= adj_matrix->n; i++) {
+        res += adj_matrix->data[i][i];
+    }
+
+    return res;
+};
+
 int main() {
 
     /*
@@ -206,9 +215,6 @@ int main() {
      * PROBLEM LOGIC
      */
 
-    // problem specific variables
-    int number_min_connection_to_make = 1000;
-
     // Create adjacency matrix
     IntArray *adj_matrix = create_array_i(line_counter, line_counter);
     fill_array_i(0, adj_matrix);
@@ -236,16 +242,24 @@ int main() {
     // fill adjancency matrix
     // !! the actual index of the last element is num_pairs - 1, not num_pairs
     quick_sort_l(pairwise_distance, dist_idxs, 0, num_pairs - 1);
+
     // reason for starting at num_nodes: d(i, i) = 0. There are num_nodes such connection
-    for (int i = line_counter; i < line_counter + number_min_connection_to_make; i++) {
-        int full_idx = dist_idxs[i];
+    int curr_dist_to_consider = line_counter;
+
+    while (sum_diag(adj_matrix) > 1 && curr_dist_to_consider < num_pairs) {
+        int full_idx = dist_idxs[curr_dist_to_consider];
         int i_idx;
         int j_idx;
+
         get_ij_from_pascal_idx(full_idx, 0, &i_idx, &j_idx);
-        put_val_in_array_i(1, i_idx, j_idx, adj_matrix);
-        put_val_in_array_i(1, j_idx, i_idx, adj_matrix);
+
         put_val_in_array_i(0, i_idx, i_idx, adj_matrix);
         put_val_in_array_i(0, j_idx, j_idx, adj_matrix);
+
+        put_val_in_array_i(1, i_idx, j_idx, adj_matrix);
+        put_val_in_array_i(1, j_idx, i_idx, adj_matrix);
+
+        curr_dist_to_consider += 1;
     }
 
     // find subgraphs and size of those
@@ -263,14 +277,39 @@ int main() {
         printf("Subgraph found of size: %i\n", size_subgraphs[i]);
     }
 
-    quick_sort_i(size_subgraphs, indices_subgraphs, 0, num_big_subgraphs - 1);
-    long final_product = 1;
-    for (int i = num_big_subgraphs - 1; i >= num_big_subgraphs - 3; i--) {
-        final_product *= size_subgraphs[i];
-        printf("Current subgraph size for final res: %i\n", size_subgraphs[i]);
-    }
+    if (num_big_subgraphs == 1) {
+        bool correct_idx_found = false;
+        int x1;
+        int x2;
+        while (sum_diag(adj_matrix) > 0 && curr_dist_to_consider < num_pairs) {
+            int full_idx = dist_idxs[curr_dist_to_consider];
+            int i_idx;
+            int j_idx;
+            get_ij_from_pascal_idx(full_idx, 0, &i_idx, &j_idx);
 
-    printf("Final result is: %li\n", final_product);
+            put_val_in_array_i(0, i_idx, i_idx, adj_matrix);
+            put_val_in_array_i(0, j_idx, j_idx, adj_matrix);
+
+            put_val_in_array_i(1, i_idx, j_idx, adj_matrix);
+            put_val_in_array_i(1, j_idx, i_idx, adj_matrix);
+
+            x1 = positions->data[i_idx][0];
+            x2 = positions->data[j_idx][0];
+
+            curr_dist_to_consider++;
+        }
+        printf("Found x1=%i and x2=%i\n", x1, x2);
+        printf("product=%li\n", (long)x1 * x2);
+
+    } else {
+        printf("Need to do better\n");
+        /* What would have happened in that case (still 2 or more component left):
+         * 1) modify the find_subgraphs() to pass in previous state (to not redo previous work)
+         * 2) while loop to wait until we have 1 big connected component. Save last pascal index
+         * put into adjacency matrix while completing graph
+         * 3) find the x1 and x2 from this last pascal index.
+         */
+    }
 
     // memory management
     free_array_i(positions);
