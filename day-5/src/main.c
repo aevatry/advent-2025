@@ -7,12 +7,12 @@
 
 typedef enum { false, true } bool;
 
-void swap_long(unsigned long *a, unsigned long *b) {
+void swap_l(unsigned long *a, unsigned long *b) {
     unsigned long temp = *a;
     *a = *b;
     *b = temp;
 }
-void swap_int(int *a, int *b) {
+void swap_i(int *a, int *b) {
     int temp = *a;
     *a = *b;
     *b = temp;
@@ -24,13 +24,13 @@ int partition(unsigned long *arr, int *indices, int low, int high) {
     int i = low;
     for (int j = low; j < high; j++) {
         if (arr[j] <= pivot) {
-            swap_long(&arr[i], &arr[j]);
-            swap_int(&indices[i], &indices[j]);
+            swap_l(&arr[i], &arr[j]);
+            swap_i(&indices[i], &indices[j]);
             i++;
         }
     }
-    swap_long(&arr[i], &arr[high]);
-    swap_int(&indices[i], &indices[high]);
+    swap_l(&arr[i], &arr[high]);
+    swap_i(&indices[i], &indices[high]);
     return i;
 }
 
