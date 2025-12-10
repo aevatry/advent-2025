@@ -21,7 +21,6 @@ typedef struct Bounday {
     int stop_x;
     int start_y;
     int stop_y;
-    cardinal_dir in_direction;
     bool vertical;
 } Boundary;
 
@@ -114,53 +113,20 @@ void increment_turn_counter(Boundary prev, Boundary current, int *turn_counter) 
     }
 };
 
-void next_bound_indir_from_previous(Boundary *prev, Boundary *current) {
-    int dx1 = prev->stop_x - prev->start_x;
-    int dx2 = current->stop_x - current->start_x;
-    int dy1 = prev->stop_y - prev->start_y;
-    int dy2 = current->stop_y - current->start_y;
-
-    current->in_direction = prev->in_direction;
-
-    // right turn
-    if ((dx1 > 0 && dy2 > 0) || (dx1 < 0 && dy2 < 0) || (dy1 > 0 && dx2 < 0) ||
-        (dy1 < 0 && dx2 > 0)) {
-        rotate_dir_90_clockwise(&current->in_direction);
-    } else if ((dx1 > 0 && dy2 < 0) || (dx1 < 0 && dy2 > 0) || (dy1 > 0 && dx2 > 0) ||
-               (dy1 < 0 && dx2 < 0)) {
-        rotate_dir_90_anticlockwise(&current->in_direction);
-    } else {
-    }
-};
-
-void push_bound_1_back(Boundary *bound) {
-    // push back the boundary by 1 unit
-
-    // normalize direction to -1, 0, 1
-    normalize_dir(&(bound->in_direction));
-
-    if (bound->vertical == true) {
-        bound->start_x -= bound->in_direction.i;
-        bound->stop_x -= bound->in_direction.i;
-    } else {
-        bound->start_y -= bound->in_direction.j;
-        bound->stop_y -= bound->in_direction.j;
-    }
-};
-
 bool bound_seg_intersect(Boundary b, Segment s) {
-    bool intersect_and_invalid = false;
+    bool intersects = false;
 
     int dx_b = absolute_i(b.stop_x - b.start_x);
     int dx_s = absolute_i(s.stop_x - s.start_x);
     int dy_b = absolute_i(b.stop_y - b.start_y);
     int dy_s = absolute_i(s.stop_y - s.start_y);
 
-    // parrallel and same axis => line out of bounds
-    if ((dx_b == 0 && dx_s == 0 && b.start_x == s.start_x) ||
-        (dy_b == 0 && dy_s == 0 && b.start_y == s.start_y)) {
-        return true;
+    // parrallel we are not checking
+    if ((dx_b == 0 && dx_s == 0) || (dy_b == 0 && dy_s == 0)) {
+        return false;
     }
+
+    // intersection with ends included
 
     int x_low;
     int x_high;
@@ -169,55 +135,64 @@ bool bound_seg_intersect(Boundary b, Segment s) {
     int x_vl;
     int y_hl;
 
+    // finding correct limits of the vertical and horizontal segments
     if (dx_b > 0 && dx_s == 0) {
+        assert(s.start_x == s.stop_x);
         x_low = min_i(b.start_x, b.stop_x);
         x_high = max_i(b.start_x, b.stop_x);
-        assert(s.start_y = s.stop_y);
-        y_hl = s.start_y;
+        y_hl = b.start_y;
     } else {
+        assert(b.start_x == b.stop_x);
         x_low = min_i(s.start_x, s.stop_x);
         x_high = max_i(s.start_x, s.stop_x);
-        assert(b.start_y = b.stop_y);
-        y_hl = b.start_y;
+        y_hl = s.start_y;
     }
 
     if (dy_b > 0 && dy_s == 0) {
+        assert(s.start_y == s.stop_y);
         y_low = min_i(b.start_y, b.stop_y);
         y_high = max_i(b.start_y, b.stop_y);
-        assert(s.start_x = s.stop_x);
-        x_vl = s.start_x;
+        x_vl = b.start_x;
     } else {
-        y_low = min_i(b.start_y, b.stop_y);
-        y_high = max_i(b.start_y, b.stop_y);
-        assert(s.start_x = s.stop_x);
+        assert(b.start_y == b.stop_y);
+        y_low = min_i(s.start_y, s.stop_y);
+        y_high = max_i(s.start_y, s.stop_y);
         x_vl = s.start_x;
     }
 
-    return intersect_and_invalid;
+    if ((y_low <= y_hl && y_hl <= y_high) && (x_low <= x_vl && x_vl <= x_high)) {
+        intersects = true;
+    }
+
+    return intersects;
 };
 
 bool is_point_pair_valid(int x1, int y1, int x2, int y2, Boundary *boundaries,
                          int num_boundaries) {
-    bool valid = false;
+
+    bool valid = true;
 
     int dx = absolute_i(x1 - x2);
     int dy = absolute_i(y1 - y2);
 
-    // condition of same point
+    // condition of same point or line
     if (dx == 0 && dy == 0) {
         return true;
     }
 
-    int low_x = min_i(x1, x2);
-    int low_y = min_i(y1, y2);
+    // !!! scaling down the rectangles so that they can never intersect if they are valid
+    int low_x = min_i(x1, x2) + 1;
+    int low_y = min_i(y1, y2) + 1;
 
     // some strange math for the correct segment in the following loop
     for (int i = 0; i < 4; i++) {
 
-        Segment s = {.start_x = low_x + (i % 2) * dx,
-                     .stop_x = low_x + (i > 2) * dx,
-                     .start_y = low_y + ((i + 1) % 2) * dx,
-                     .stop_y = low_y + (i > 2) * dy,
+        // scale down the rectangle by 1 height on each side and 1 width on each side
+        // d_ - 2 is because we need to do d_ - 1 for the correct index
+        Segment s = {.start_x = low_x + (i % 2) * (dx - 2),
+                     .stop_x = low_x + (i > 2) * (dx - 2),
+                     .start_y = low_y + ((i + 1) % 2) * (dy - 2),
+                     .stop_y = low_y + (i > 2) * (dy - 2),
                      .vertical = (bool)(dx == 0)};
 
         for (int j = 0; j < num_boundaries; j++) {
@@ -232,6 +207,27 @@ bool is_point_pair_valid(int x1, int y1, int x2, int y2, Boundary *boundaries,
     return valid;
 };
 
+void draw_boundaries(Boundary *boundaries, int num_boundaries) {
+    IntArray *arr = create_array_i(20, 20);
+    fill_array_i(0, arr);
+    for (int i = 0; i < num_boundaries; i++) {
+        int sx = min_i(boundaries[i].start_x, boundaries[i].stop_x);
+        int ex = max_i(boundaries[i].start_x, boundaries[i].stop_x);
+        int sy = min_i(boundaries[i].start_y, boundaries[i].stop_y);
+        int ey = max_i(boundaries[i].start_y, boundaries[i].stop_y);
+        printf("Boundary at i=%i is: x:%i-%i y:%i-%i\n", i, sx, ex, sy, ey);
+        for (int k = sy; k <= ey; k++) {
+            for (int j = sx; j <= ex; j++) {
+                put_val_in_array_i(1, k, j, arr);
+            }
+        }
+    }
+
+    printf("Boundaries: \n");
+    print_2d_int_array(arr);
+    printf("\n");
+};
+
 int main() {
 
     /*
@@ -239,7 +235,7 @@ int main() {
      */
 
     FILE *input_file;
-    input_file = fopen("dummy.txt", "r");
+    input_file = fopen("input.txt", "r");
     if (input_file == NULL) {
         printf("The file is not opened.");
         fclose(input_file);
@@ -304,16 +300,6 @@ int main() {
          */
         if (line_counter == 0) {
             /*Cannot construct a boundary with 1 point */
-        } else if (line_counter == 1) {
-
-            int dx = absolute_i(positions->data[line_counter - 1][0] -
-                                positions->data[line_counter][0]);
-            Boundary curr_b = {.start_x = positions->data[line_counter - 1][0],
-                               .stop_x = positions->data[line_counter][0],
-                               .start_y = positions->data[line_counter - 1][1],
-                               .stop_y = positions->data[line_counter][1],
-                               .vertical = (bool)(dx == 0)};
-            boundaries[line_counter - 1] = curr_b;
         } else {
             int dx = absolute_i(positions->data[line_counter - 1][0] -
                                 positions->data[line_counter][0]);
@@ -323,8 +309,6 @@ int main() {
                                .stop_y = positions->data[line_counter][1],
                                .vertical = (bool)(dx == 0)};
             boundaries[line_counter - 1] = curr_b;
-            increment_turn_counter(boundaries[line_counter - 2], boundaries[line_counter - 1],
-                                   &num_clockwise_turns);
         }
 
         line_counter++;
@@ -332,39 +316,16 @@ int main() {
     /* At end, still need to construct boundary between last and 1st point */
 
     Boundary curr_b = {
-        .start_x = positions->data[line_counter][0],
+        .start_x = positions->data[line_counter - 1][0],
         .stop_x = positions->data[0][0],
-        .start_y = positions->data[line_counter][1],
+        .start_y = positions->data[line_counter - 1][1],
         .stop_y = positions->data[0][1],
     };
-    boundaries[line_counter] = curr_b;
-    increment_turn_counter(boundaries[line_counter - 1], boundaries[0], &num_clockwise_turns);
-
-    // give correct direction to first tile
-    cardinal_dir dir_first_segment = {.i = boundaries[0].stop_x - boundaries[0].start_x,
-                                      .j = boundaries[0].stop_y - boundaries[0].start_y};
-    normalize_dir(&dir_first_segment);
-    if (num_clockwise_turns == 3) {
-        rotate_dir_90_clockwise(&dir_first_segment);
-    } else if (num_clockwise_turns == -3) {
-        rotate_dir_90_anticlockwise(&dir_first_segment);
-    } else {
-        printf("Boundaries are not closed, exiting program \n");
-        return EXIT_FAILURE;
-    }
-    boundaries[0].in_direction = dir_first_segment;
-    push_bound_1_back(&boundaries[0]);
-
+    boundaries[line_counter - 1] = curr_b;
+    // draw_boundaries(boundaries, line_counter);
     /*
      * PROBLEM LOGIC
      */
-
-    // construct pushed boundaries and direction of boundary
-    int num_boundaries = line_counter + 1;
-    for (int i = 1; i < line_counter + 1; i++) {
-        next_bound_indir_from_previous(&boundaries[i - 1], &boundaries[i]);
-        push_bound_1_back(&boundaries[i]);
-    }
 
     // Calculate pairwise distances
     int num_pairs = line_counter * (line_counter + 1) / 2;
@@ -379,8 +340,8 @@ int main() {
             long dx = absolute_l(positions->data[i][0] - positions->data[j][0]) + 1;
             long dy = absolute_l(positions->data[i][1] - positions->data[j][1]) + 1;
             long area = dx * dy;
-            if (is_point_pair_valid(positions->data[i][0], positions->data[j][0],
-                                    positions->data[i][1], positions->data[j][1], boundaries,
+            if (is_point_pair_valid(positions->data[i][0], positions->data[i][1],
+                                    positions->data[j][0], positions->data[j][1], boundaries,
                                     line_counter + 1)) {
                 pairwise_area[i * (i + 1) / 2 + j] = area;
             } else {
