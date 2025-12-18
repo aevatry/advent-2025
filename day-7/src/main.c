@@ -1,4 +1,4 @@
-#include "array.h"
+#include "helpers/array.h"
 #include <assert.h>
 #include <limits.h>
 #include <stdio.h>
@@ -34,7 +34,6 @@ void print_2d_int_array(IntArray *array) {
     }
 };
 
-// could add caching but a bit more complicated
 unsigned long number_of_paths(IntArray *array, int idx, int depth, ULongArray *cache) {
 
     unsigned long res = 0;
