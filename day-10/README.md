@@ -1,6 +1,19 @@
 This is the tenth day of the advent of code calendar.   
 To build and run, navigate to the correct directory in a terminal and run ```make run```. This has only been tested on MacOS with clang version 17.0.0.
 
+For the joltage tree search, list of methods implemented and the execution time (using the ```clock()``` utility of ```<time.h>``` and the ```dummy.txt``` input file):  
+- 1: No specific strategy (check if state is invalid, check if current depth is higher than minimum found depth): ~ 1s with around 2-3 million states visited per objective (except a 31 M objective) 
+- 2: Sort the buttons by distance to the objective: ~2.5s and more steps than the previous version
+- 3: Cut down on paths that will not make it to minimum found depth in time
+
+With the real input (1 sample): 
+- 1: Did not finish
+- 2: Did not finish
+- 3: Did not finish
+- 2+3: Did not finish
+
+Smart solution for an search based solution: https://www.reddit.com/r/adventofcode/comments/1pk87hl/2025_day_10_part_2_bifurcate_your_way_to_victory/
+
 
 # Problem 1   
 Just across the hall, you find a large factory. Fortunately, the Elves here have plenty of time to decorate. Unfortunately, it's because the factory machines are all offline, and none of the Elves can figure out the initialization procedure.

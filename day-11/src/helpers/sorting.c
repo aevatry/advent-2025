@@ -1,5 +1,4 @@
 #include "sorting.h"
-#include <assert.h>
 
 void swap_l(long *a, long *b) {
     long temp = *a;
@@ -53,9 +52,8 @@ int partition_i(int *arr, int *indices, int low, int high) {
     return i;
 };
 
-// Quick Sort function for an array of int. Keeps track of sorted indices.
+// Quick Sort function for an array of int. Keeps track of sorted indices
 void quick_sort_i(int *arr, int *indices, int low, int high) {
-
     if (low < high) {
         int pi = partition_i(arr, indices, low, high);
         quick_sort_i(arr, indices, low, pi - 1);

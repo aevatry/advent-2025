@@ -44,59 +44,16 @@ void update_template(IntList *state, IntList *button) {
 
 long absolute_l(long a) { return (a >= 0) * a - (a < 0) * a; };
 
-int sort_buttons_euristic(IntList *objective, IntListOL *buttons, IntList *current_state,
-                          int idx_prev_button_back_upd) {
-    int idx_new_button_back_upd;
-
-    int distances[buttons->num_sublists];
-    int indices[buttons->num_sublists];
-
-    for (int i = 0; i < buttons->num_sublists; i++) {
-        IntList *curr_button = get_sub_list(i, buttons);
-        distances[i] = 0;
-        indices[i] = i;
-        for (int j = 0; j < curr_button->idx_next_elem; j++) {
-            int button_idx = curr_button->data[j];
-            int local_diff = objective->data[button_idx] - current_state->data[button_idx] - 1;
-            distances[i] += local_diff;
-        }
-    }
-
-    quick_sort_i(distances, indices, 0, buttons->num_sublists - 1);
-
-    for (int i = 0; i < buttons->num_sublists; i++) {
-        if (indices[i] == idx_prev_button_back_upd) {
-            idx_new_button_back_upd = i;
-        }
-    }
-
-    return idx_new_button_back_upd;
-}
-
-bool has_state_overstepped(IntList *objective, IntList *current_state) {
-    bool has_overstepped = false;
-
-    for (int i = 0; i < objective->idx_next_elem; i++) {
-        if (current_state->data[i] > objective->data[i]) {
-            has_overstepped = true;
-        }
-    }
-
-    return has_overstepped;
-}
-
 int minimum_depth_for_constraint(IntList *objective, IntListOL *buttons, IntList *current_state,
                                  int curr_depth, int minimum_found_depth, int idx_button_back_upd,
                                  Update forward_upd, Update backward_upd) {
 
-    // never search deeper than an existing solution
     if (curr_depth >= minimum_found_depth) {
         IntList *back_upd_button = get_sub_list(idx_button_back_upd, buttons);
         backward_upd(current_state, back_upd_button);
         return curr_depth;
     }
 
-    // if we have a match, return the current depth
     if (is_list_i_strictly_equal(objective, current_state) == 1) {
         IntList *back_upd_button = get_sub_list(idx_button_back_upd, buttons);
         backward_upd(current_state, back_upd_button);
@@ -110,15 +67,12 @@ int minimum_depth_for_constraint(IntList *objective, IntListOL *buttons, IntList
         int depth_reached =
             minimum_depth_for_constraint(objective, buttons, current_state, curr_depth + 1,
                                          minimum_found_depth, i, forward_upd, backward_upd);
-
-        // Update conditions for the depth
-        if (depth_reached > 0 && depth_reached < minimum_found_depth) {
+        if (depth_reached < minimum_found_depth) {
             minimum_found_depth = depth_reached;
         }
     }
 
-    // Now that we have the minimum, update state backward (if not at start node) and return found
-    // minimum
+    // Now that we have the minimum, update state backward and return found minimum
     if (curr_depth > 0) {
         IntList *back_upd_button = get_sub_list(idx_button_back_upd, buttons);
         backward_upd(current_state, back_upd_button);
@@ -134,7 +88,7 @@ int main() {
      */
 
     FILE *input_file;
-    input_file = fopen("dummy.txt", "r");
+    input_file = fopen("input.txt", "r");
     if (input_file == NULL) {
         printf("The file is not opened.");
         fclose(input_file);

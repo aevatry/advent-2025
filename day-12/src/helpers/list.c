@@ -87,7 +87,6 @@ IntListOL *create_listol_i() {
     nested_list->allocated_sublists = 0;
     return nested_list;
 };
-
 void add_sub_list_to_listol(int sub_list_size, IntListOL *list_of_lists) {
     // base case, 0 sublist, allocate space for a few list pointers
     if (list_of_lists->allocated_sublists == 0) {
