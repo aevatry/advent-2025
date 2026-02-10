@@ -7,9 +7,9 @@ SRC_DIRS ?= ./src
 
 SRCS := $(shell find $(SRC_DIRS) -name *.c)
 OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
-# line below finds all the dependencies
 DEPS := $(OBJS:.o=.d)
 
+# line below finds all sub-dependencies (lib folders) to include
 INC_DIRS := $(shell find $(SRC_DIRS) -type d)
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 

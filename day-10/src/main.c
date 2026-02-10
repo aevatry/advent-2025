@@ -12,7 +12,16 @@
 
 typedef enum { false, true } bool;
 
-typedef void (*Update)(IntList *, IntList *);
+typedef struct JoltageState {
+    IntList *objective;
+    IntListOL *buttons;
+    IntList *current_state;
+    IntList *used_buttons;
+    long num_calls;
+    int minimum_found_depth;
+} JoltageState;
+
+typedef void (*Update)(JoltageState *state, int idx, int scaler);
 
 int absolute_i(int a) { return (a >= 0) * a - (a < 0) * a; };
 
@@ -35,27 +44,80 @@ int construct_int_from_chars(int length_num, char *chars) {
     return result;
 };
 
-void update_template(IntList *state, IntList *button) {
+void update_template(IntList *state, IntList *button, int scaler) {
     for (int i = 0; i < button->idx_next_elem; i++) {
         int idx_given_by_button = button->data[i];
         assert(idx_given_by_button < state->idx_next_elem);
-        state->data[idx_given_by_button] = (state->data[idx_given_by_button] + 1) % 2;
+        state->data[idx_given_by_button] = (state->data[idx_given_by_button] + scaler) % 2;
     }
 }
 
-void update_joltage_fwd(IntList *state, IntList *button) {
+void update_joltage_fwd(JoltageState *jolt_state, int button_idx, int scaler) {
+    assert(scaler >= 0);
+    IntList *button = get_sub_list(button_idx, jolt_state->buttons);
+    IntList *state = jolt_state->current_state;
     for (int i = 0; i < button->idx_next_elem; i++) {
         int idx_given_by_button = button->data[i];
-        assert(idx_given_by_button < state->idx_next_elem);
-        state->data[idx_given_by_button] = (state->data[idx_given_by_button] + 1);
+        state->data[idx_given_by_button] = (state->data[idx_given_by_button] + scaler);
     }
+    jolt_state->used_buttons->data[button_idx] = 1;
 }
-void update_joltage_bwd(IntList *state, IntList *button) {
+void update_joltage_bwd(JoltageState *jolt_state, int button_idx, int scaler) {
+    assert(scaler >= 0);
+    IntList *button = get_sub_list(button_idx, jolt_state->buttons);
+    IntList *state = jolt_state->current_state;
     for (int i = 0; i < button->idx_next_elem; i++) {
         int idx_given_by_button = button->data[i];
-        assert(idx_given_by_button < state->idx_next_elem);
-        state->data[idx_given_by_button] = (state->data[idx_given_by_button] - 1);
+        state->data[idx_given_by_button] = (state->data[idx_given_by_button] - scaler);
     }
+    jolt_state->used_buttons->data[button_idx] = 0;
+}
+
+int pick_best_button(IntList *objective, IntListOL *buttons, IntList *current_state,
+                     IntList *used_buttons, int *max_num_presses) {
+    int idx_best_button = -1;
+    int max_closing = 0;
+
+    for (int i = 0; i < buttons->num_sublists; i++) {
+        IntList *curr_button = get_sub_list(i, buttons);
+        int closing = -1;
+
+        // if button unused we can proceed
+        if (used_buttons->data[i] == 0) {
+            closing = curr_button->idx_next_elem;
+            for (int j = 0; j < curr_button->idx_next_elem; j++) {
+                int button_idx = curr_button->data[j];
+                int delta = objective->data[button_idx] - (current_state->data[button_idx] + 1);
+                if (delta < 0) {
+                    closing = -1;
+                }
+            }
+        }
+
+        if (closing >= 0 && closing > max_closing) {
+            idx_best_button = i;
+            max_closing = closing;
+        }
+    }
+
+    // control flow if there is no valid button
+    if (idx_best_button < 0) {
+        return -1;
+    }
+
+    int min_presses_to_target = INT_MAX;
+
+    IntList *best_button = get_sub_list(idx_best_button, buttons);
+    for (int j = 0; j < best_button->idx_next_elem; j++) {
+        int button_idx = best_button->data[j];
+        int curr_presses = objective->data[button_idx] - current_state->data[button_idx];
+        if (curr_presses < min_presses_to_target) {
+            min_presses_to_target = curr_presses;
+        }
+    }
+    *max_num_presses = min_presses_to_target;
+
+    return idx_best_button;
 }
 
 long absolute_l(long a) { return (a >= 0) * a - (a < 0) * a; };
@@ -65,6 +127,7 @@ void sort_buttons_euristic(IntList *objective, IntListOL *buttons, IntList *curr
 
     int distances[buttons->num_sublists];
 
+    // This the wrong way to calculate distances
     for (int i = 0; i < buttons->num_sublists; i++) {
         IntList *curr_button = get_sub_list(i, buttons);
         distances[i] = 0;
@@ -108,66 +171,66 @@ bool will_not_be_min(IntList *objective, IntList *current_state, int minimum_fou
     return will_not_be_min;
 }
 
-int minimum_depth_for_constraint(IntList *objective, IntListOL *buttons, IntList *current_state,
-                                 int curr_depth, int minimum_found_depth, int idx_button_back_upd,
-                                 Update forward_upd, Update backward_upd, long *num_calls) {
+int minimum_depth_for_constraint(JoltageState *state, int curr_depth, int idx_button_back_upd,
+                                 int scaler, Update forward_upd, Update backward_upd) {
 
-    *num_calls += 1;
+    state->num_calls += 1;
+
     // never search deeper than an existing solution
-    if (curr_depth >= minimum_found_depth) {
-        IntList *back_upd_button = get_sub_list(idx_button_back_upd, buttons);
-        backward_upd(current_state, back_upd_button);
+    if (curr_depth >= state->minimum_found_depth) {
+        backward_upd(state, idx_button_back_upd, scaler);
         return curr_depth;
     }
 
     // if we have overstepped, return negative
-    if (has_state_overstepped(objective, current_state) == true) {
-        IntList *back_upd_button = get_sub_list(idx_button_back_upd, buttons);
-        backward_upd(current_state, back_upd_button);
+    if (has_state_overstepped(state->objective, state->current_state) == true) {
+        backward_upd(state, idx_button_back_upd, scaler);
         return -1;
     }
 
-    // if we have no chance to reach minimum depth, return
-    if (will_not_be_min(objective, current_state, minimum_found_depth, curr_depth) == true) {
-        IntList *back_upd_button = get_sub_list(idx_button_back_upd, buttons);
-        backward_upd(current_state, back_upd_button);
-        return minimum_found_depth + 1;
+    if (will_not_be_min(state->objective, state->current_state, state->minimum_found_depth,
+                        curr_depth) == true) {
+        backward_upd(state, idx_button_back_upd, scaler);
+        return state->minimum_found_depth + 1;
     }
 
     // if we have a match, return the current depth
-    if (is_list_i_strictly_equal(objective, current_state) == 1) {
-        IntList *back_upd_button = get_sub_list(idx_button_back_upd, buttons);
-        backward_upd(current_state, back_upd_button);
+    if (is_list_i_strictly_equal(state->objective, state->current_state) == 1) {
+        backward_upd(state, idx_button_back_upd, scaler);
         return curr_depth;
     }
 
-    int indices[buttons->num_sublists];
-    sort_buttons_euristic(objective, buttons, current_state, indices);
+    int max_scaler;
+    int idx_best_button = pick_best_button(state->objective, state->buttons, state->current_state,
+                                           state->used_buttons, &max_scaler);
 
-    // loop through all buttons to update forward and find minimum depth to solve
-    for (int i = 0; i < buttons->num_sublists; i++) {
-        int idx_button = indices[i];
-        // int idx_button = i;
-        IntList *current_button = get_sub_list(idx_button, buttons);
-        forward_upd(current_state, current_button);
+    // return if no button available
+    if (idx_best_button < 0) {
+        backward_upd(state, idx_button_back_upd, scaler);
+        return -1;
+    }
+
+    for (int new_scale = max_scaler; new_scale >= 0; new_scale--) {
+        // pick button and update to correct scale
+        forward_upd(state, idx_best_button, new_scale);
+
+        // recursion step
         int depth_reached = minimum_depth_for_constraint(
-            objective, buttons, current_state, curr_depth + 1, minimum_found_depth, idx_button,
-            forward_upd, backward_upd, num_calls);
+            state, curr_depth + new_scale, idx_best_button, new_scale, forward_upd, backward_upd);
 
         // Update conditions for the depth
-        if (depth_reached > 0 && depth_reached < minimum_found_depth) {
-            minimum_found_depth = depth_reached;
+        if (depth_reached > 0 && depth_reached < state->minimum_found_depth) {
+            state->minimum_found_depth = depth_reached;
         }
     }
 
-    // Now that we have the minimum, update state backward (if not at start node) and return found
-    // minimum
+    // Now that we have the minimum, update state backward (if not at start node) and
+    // return found minimum
     if (curr_depth > 0) {
-        IntList *back_upd_button = get_sub_list(idx_button_back_upd, buttons);
-        backward_upd(current_state, back_upd_button);
+        backward_upd(state, idx_button_back_upd, scaler);
     }
 
-    return minimum_found_depth;
+    return state->minimum_found_depth;
 };
 
 int main() {
@@ -186,7 +249,8 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    /*Each line ends with 2 characters -> newline/line feed (ASCII 10) and NULL (ASCII 0)  */
+    /*Each line ends with 2 characters -> newline/line feed (ASCII 10) and NULL (ASCII 0)
+     */
     char line[LINE_LENGTH];
     unsigned long total_sum = 0;
 
@@ -216,6 +280,7 @@ int main() {
         IntList *state = create_list_i(8);
         IntList *joltages = create_list_i(8);
         IntListOL *buttons = create_listol_i();
+        IntList *used_buttons = create_list_i(8);
 
         // !! assumption -> input is well formatted
         while (has_reached_eol == false) {
@@ -240,6 +305,7 @@ int main() {
                 in_button_mode = true;
                 int size_sub_list = 12;
                 add_sub_list_to_listol(size_sub_list, buttons);
+                push_val_in_list_i(0, used_buttons);
             }
             if (line[in_line_idx] == exit_button) {
                 in_button_mode = false;
@@ -301,13 +367,17 @@ int main() {
             print_list(buttons->all_lists[i]);
         }
 
-        long num_calls = 0;
-        int min_num_steps =
-            minimum_depth_for_constraint(joltages, buttons, state, 0, INT_MAX, 0,
-                                         update_joltage_fwd, update_joltage_bwd, &num_calls);
+        JoltageState jolt_state = {.current_state = state,
+                                   .objective = joltages,
+                                   .buttons = buttons,
+                                   .used_buttons = used_buttons,
+                                   .minimum_found_depth = INT_MAX,
+                                   .num_calls = 0};
+        int min_num_steps = minimum_depth_for_constraint(&jolt_state, 0, 0, 1, update_joltage_fwd,
+                                                         update_joltage_bwd);
         total_sum += min_num_steps;
         printf("Minimum number of steps found is: %d with %li steps\n\n", min_num_steps,
-               num_calls);
+               jolt_state.num_calls);
 
         free_list_i(template);
         free_list_i(joltages);

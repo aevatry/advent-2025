@@ -5,12 +5,14 @@ For the joltage tree search, list of methods implemented and the execution time 
 - 1: No specific strategy (check if state is invalid, check if current depth is higher than minimum found depth): ~ 1s with around 2-3 million states visited per objective (except a 31 M objective) 
 - 2: Sort the buttons by distance to the objective: ~2.5s and more steps than the previous version
 - 3: Cut down on paths that will not make it to minimum found depth in time
+- 4: Jump in bundles of button presses in 1 step (insight is that order of button presses does not matter): ~0.4 ms with around 1000 state visited for each sequence
 
 With the real input (1 sample): 
 - 1: Did not finish
 - 2: Did not finish
 - 3: Did not finish
 - 2+3: Did not finish
+- 4: Did not finish
 
 Smart solution for an search based solution: https://www.reddit.com/r/adventofcode/comments/1pk87hl/2025_day_10_part_2_bifurcate_your_way_to_victory/
 
